@@ -247,9 +247,54 @@ LIMS integration is not required for MVP but architecture must support it.
 
 ---
 
-## Article VIII: Naming Conventions
+## Article VIII: Physical Layout
 
-### Section 8.1: Actor Naming
+### Section 8.1: Stator Grid System
+
+**RATIFIED:** The XPlanar deck is composed of stator tiles arranged in a perfect grid:
+
+| Property | Value |
+|----------|-------|
+| Stator tile size | 240mm × 240mm |
+| Grid alignment | Perfect edge-to-edge mating |
+| Extensibility | Grid can extend in any direction |
+
+### Section 8.2: Movement Constraints
+
+**RATIFIED:** Movers can ONLY traverse the surface of stator tiles. The stator grid defines the navigable area.
+
+### Section 8.3: Device Footprints
+
+**RATIFIED:** All devices that dock to the XPlanar system share the standard 240mm × 240mm footprint. This allows:
+- Uniform grid-based placement
+- Predictable station positions
+- Modular deck reconfiguration
+
+### Section 8.4: Coordinate System
+
+**RATIFIED:** The deck uses a millimeter-based coordinate system:
+- Origin (0,0) at top-left corner of the deck
+- X-axis increases to the right
+- Y-axis increases downward
+- Positions can be expressed as grid coordinates (tile indices) or absolute mm coordinates
+
+```
+Grid Position (1, 2) = Absolute Position (240mm, 480mm)
+```
+
+### Section 8.5: Visualization Fidelity
+
+**RATIFIED:** The 2D deck visualization SHALL accurately reflect physical layout:
+- 1:1 aspect ratio for tiles
+- Stator tiles clearly distinguished from non-traversable areas
+- Device positions locked to grid
+- Mover positions shown at actual mm coordinates (within grid)
+
+---
+
+## Article IX: Naming Conventions
+
+### Section 9.1: Actor Naming
 
 | Entity | Naming Pattern | Example |
 |--------|----------------|---------|
@@ -257,7 +302,7 @@ LIMS integration is not required for MVP but architecture must support it.
 | MoverActor | `mover-{mover_id}` | `mover-1` |
 | DeviceActor | `device-{device_type}-{id}` | `device-pipetter-1` |
 
-### Section 8.2: Event Naming
+### Section 9.2: Event Naming
 
 Events use dot-notation: `{actor_type}.{event_name}`
 
@@ -270,16 +315,16 @@ Examples:
 
 ---
 
-## Article IX: Amendment Process
+## Article X: Amendment Process
 
-### Section 9.1: Proposing Amendments
+### Section 10.1: Proposing Amendments
 
 Amendments to this Constitution may be proposed by any contributor. Proposals must include:
 1. The specific article/section to amend
 2. Rationale for the change
 3. Impact analysis
 
-### Section 9.2: Ratification
+### Section 10.2: Ratification
 
 Amendments require explicit approval before being incorporated. Approved amendments are added with:
 - Amendment number
