@@ -10,6 +10,7 @@ import asyncio
 import json
 import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
@@ -21,7 +22,18 @@ from .actors.mover_actor import MoverActor
 from .actors.messages import AssignWorkflow, WorkflowStep, Pause, Resume
 from .services.mover_pool import MoverPool
 from .services.event_bus import EventBus, Event, get_event_bus
+from .services.deck_storage import DeckStorage
+from .services.location_manager import LocationManager
+from .services.track_manager import TrackManager
 from .models.deck import DeckConfig, create_demo_deck, GridPosition, TILE_SIZE_MM
+from .api import (
+    locations_router,
+    set_locations_deps,
+    tracks_router,
+    set_tracks_deps,
+    deck_editor_router,
+    set_editor_deps,
+)
 
 # Configure logging
 logging.basicConfig(
@@ -45,11 +57,32 @@ class TitanApp:
         self.plates: dict[str, PlateActor] = {}
         self.movers: dict[str, MoverActor] = {}
         self.websockets: list[WebSocket] = []
+
+        # Deck configuration services
+        data_dir = Path(__file__).parent.parent / "data"
+        self.deck_storage = DeckStorage(data_dir)
+        self.location_manager = LocationManager()
+        self.track_manager = TrackManager()
         self.deck: DeckConfig = create_demo_deck()
 
     async def startup(self) -> None:
         """Initialize the application."""
         logger.info("Titan: Starting up...")
+
+        # Load deck configuration from storage (if exists)
+        try:
+            self.deck = await self.deck_storage.load_full_config()
+            self.location_manager.set_locations(self.deck.locations)
+            self.track_manager.set_tracks(self.deck.tracks)
+            logger.info("Titan: Loaded deck configuration from storage")
+        except Exception as e:
+            logger.warning(f"Titan: Using demo deck (no saved config): {e}")
+            self.deck = create_demo_deck()
+
+        # Set up API dependencies
+        set_locations_deps(self.location_manager, self.deck_storage)
+        set_tracks_deps(self.track_manager, self.deck_storage, self.location_manager)
+        set_editor_deps(self.deck_storage, lambda: self.deck)
 
         # Create movers
         for i in range(1, 4):  # 3 movers
@@ -151,6 +184,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Register API routers
+app.include_router(locations_router)
+app.include_router(tracks_router)
+app.include_router(deck_editor_router)
 
 
 # ============================================================================

@@ -37,6 +37,46 @@ export type DeviceType =
   | 'nest'
   | 'barcode_reader'
 
+// Location types (from xplanar-test LocationManager)
+export type LocationType = 'waypoint' | 'device' | 'pivot' | 'queue' | 'track_service_location'
+
+export interface TrackPosition {
+  track_id: number
+  distance: number
+}
+
+export interface Location {
+  location_id: string
+  name: string
+  location_type: LocationType
+  x: number
+  y: number
+  c: number
+  track_id: number | null
+  track_distance: number | null
+  station_id: string | null
+  metadata: Record<string, unknown>
+}
+
+export interface Track {
+  track_id: number
+  name: string
+  start_x: number
+  start_y: number
+  end_x: number
+  end_y: number
+  length: number
+}
+
+export interface QuadrantPoint {
+  tile_col: number
+  tile_row: number
+  quadrant_x: number
+  quadrant_y: number
+  absolute_x: number
+  absolute_y: number
+}
+
 export interface Station {
   station_id: string
   name: string
@@ -59,6 +99,28 @@ export interface DeckConfig {
   height_mm: number
   tiles: StatorTile[]
   stations: Station[]
+  tracks: Track[]
+  locations: Location[]
+}
+
+// Editor state types
+export type EditorMode = 'view' | 'edit_tiles' | 'draw_track' | 'place_location' | 'place_station'
+export type EditorTool = 'select' | 'toggle_tile' | 'draw_track' | 'delete_track' | 'place_waypoint' | 'place_device' | 'place_queue'
+
+export interface EditorState {
+  mode: EditorMode
+  selectedTool: EditorTool | null
+  snapToGrid: boolean
+  snapDistance: number // in mm, default 5
+  showQuadrantLines: boolean
+  showTracks: boolean
+  showQueuePoints: boolean
+  showLocations: boolean
+}
+
+export interface DrawingTrack {
+  start: { x: number; y: number } | null
+  current: { x: number; y: number } | null
 }
 
 // Actor state types

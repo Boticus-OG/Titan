@@ -32,6 +32,16 @@ class DeviceType(str, Enum):
     BARCODE_READER = "barcode_reader"
 
 
+class LocationType(str, Enum):
+    """Types of teach point locations (from xplanar-test LocationManager)."""
+
+    WAYPOINT = "waypoint"  # Station entry/exit points
+    DEVICE = "device"  # Actual device work positions
+    PIVOT = "pivot"  # Rotation points within stations
+    QUEUE = "queue"  # Traffic control checkpoints on tracks
+    TRACK_SERVICE = "track_service_location"  # Track maintenance points
+
+
 @dataclass(frozen=True)
 class Position:
     """Absolute position in millimeters.
@@ -70,6 +80,164 @@ class GridPosition:
 
     def to_dict(self) -> dict[str, int]:
         return {"col": self.col, "row": self.row}
+
+
+@dataclass(frozen=True)
+class TrackPosition:
+    """Position along a track (from xplanar-test).
+
+    Used for locations that are defined by their position on a track
+    rather than absolute cartesian coordinates.
+    """
+
+    track_id: int  # 1-indexed track ID (matches PLC convention)
+    distance: float  # Distance in mm along the track from start
+
+    def to_dict(self) -> dict[str, Any]:
+        return {"track_id": self.track_id, "distance": self.distance}
+
+
+@dataclass
+class Track:
+    """A track path for mover navigation.
+
+    Tracks are linear paths that movers follow. They are defined in TwinCAT
+    and extracted at runtime. Each track has start/end coordinates and
+    can have queue points along its length.
+    """
+
+    track_id: int  # 1-indexed (matches PLC convention)
+    name: str
+    start_x: float  # Start point X in mm
+    start_y: float  # Start point Y in mm
+    end_x: float  # End point X in mm
+    end_y: float  # End point Y in mm
+
+    @property
+    def length(self) -> float:
+        """Calculate track length in mm."""
+        import math
+        dx = self.end_x - self.start_x
+        dy = self.end_y - self.start_y
+        return math.sqrt(dx * dx + dy * dy)
+
+    def position_at_distance(self, distance: float) -> Position:
+        """Get cartesian position at distance along track."""
+        if self.length == 0:
+            return Position(x=self.start_x, y=self.start_y)
+
+        ratio = min(1.0, max(0.0, distance / self.length))
+        x = self.start_x + (self.end_x - self.start_x) * ratio
+        y = self.start_y + (self.end_y - self.start_y) * ratio
+        return Position(x=x, y=y)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "track_id": self.track_id,
+            "name": self.name,
+            "start_x": self.start_x,
+            "start_y": self.start_y,
+            "end_x": self.end_x,
+            "end_y": self.end_y,
+            "length": self.length,
+        }
+
+
+@dataclass
+class Location:
+    """A teach point location with dual coordinate support.
+
+    Locations can have both cartesian (x, y, c) and track-based
+    (track_id, distance) coordinates. This allows flexible positioning
+    for different use cases (free-space movement vs track-following).
+    """
+
+    location_id: str
+    name: str
+    location_type: LocationType
+
+    # Cartesian coordinates
+    x: float
+    y: float
+    c: float = 0.0  # Rotation in degrees
+
+    # Track-based coordinates (optional)
+    track_id: int | None = None
+    track_distance: float | None = None
+
+    # Parent station association
+    station_id: str | None = None
+
+    # Metadata for device type, priority, etc.
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    @property
+    def position(self) -> Position:
+        """Get cartesian position."""
+        return Position(x=self.x, y=self.y, c=self.c)
+
+    @property
+    def track_position(self) -> TrackPosition | None:
+        """Get track position if defined."""
+        if self.track_id is not None and self.track_distance is not None:
+            return TrackPosition(track_id=self.track_id, distance=self.track_distance)
+        return None
+
+    @property
+    def has_track_coordinates(self) -> bool:
+        """Check if location has track-based coordinates."""
+        return self.track_id is not None and self.track_distance is not None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "location_id": self.location_id,
+            "name": self.name,
+            "location_type": self.location_type.value,
+            "x": self.x,
+            "y": self.y,
+            "c": self.c,
+            "track_id": self.track_id,
+            "track_distance": self.track_distance,
+            "station_id": self.station_id,
+            "metadata": self.metadata,
+        }
+
+    def to_xplanar_format(self) -> dict[str, Any]:
+        """Convert to xplanar-test compatible JSON format."""
+        return {
+            "name": self.name,
+            "type": self.location_type.value,
+            "coordinates": {
+                "cartesian": {"x": self.x, "y": self.y, "c": self.c},
+                "track": (
+                    {"track_id": self.track_id, "distance": self.track_distance}
+                    if self.has_track_coordinates
+                    else None
+                ),
+            },
+            "parent": self.station_id,
+            "metadata": self.metadata,
+        }
+
+    @classmethod
+    def from_xplanar_format(cls, location_id: str, data: dict[str, Any]) -> Location:
+        """Create Location from xplanar-test JSON format."""
+        coords = data.get("coordinates", {})
+        cartesian = coords.get("cartesian", {})
+        track = coords.get("track")
+
+        return cls(
+            location_id=location_id,
+            name=data.get("name", location_id),
+            location_type=LocationType(data.get("type", "device")),
+            x=cartesian.get("x", 0.0),
+            y=cartesian.get("y", 0.0),
+            c=cartesian.get("c", 0.0),
+            track_id=track.get("track_id") if track else None,
+            track_distance=track.get("distance") if track else None,
+            station_id=data.get("parent"),
+            metadata=data.get("metadata", {}),
+        )
 
 
 @dataclass
@@ -157,6 +325,8 @@ class DeckConfig:
     - Grid dimensions (number of stator tiles)
     - Which tiles are active (for irregular shapes)
     - Station positions and types
+    - Tracks for mover navigation
+    - Locations (teach points) for waypoints, devices, queues
     """
 
     name: str
@@ -168,6 +338,12 @@ class DeckConfig:
 
     # Stations on the deck
     stations: list[Station] = field(default_factory=list)
+
+    # Tracks for mover navigation
+    tracks: list[Track] = field(default_factory=list)
+
+    # Locations (teach points)
+    locations: list[Location] = field(default_factory=list)
 
     @property
     def tile_size_mm(self) -> int:
@@ -224,6 +400,69 @@ class DeckConfig:
 
         return GridPosition(col, row) not in self.disabled_tiles
 
+    def get_track(self, track_id: int) -> Track | None:
+        """Get track by ID."""
+        for track in self.tracks:
+            if track.track_id == track_id:
+                return track
+        return None
+
+    def get_location(self, location_id: str) -> Location | None:
+        """Get location by ID."""
+        for location in self.locations:
+            if location.location_id == location_id:
+                return location
+        return None
+
+    def get_locations_by_type(self, location_type: LocationType) -> list[Location]:
+        """Get all locations of a specific type."""
+        return [loc for loc in self.locations if loc.location_type == location_type]
+
+    def get_locations_by_station(self, station_id: str) -> list[Location]:
+        """Get all locations belonging to a station."""
+        return [loc for loc in self.locations if loc.station_id == station_id]
+
+    def get_queue_points_on_track(self, track_id: int) -> list[Location]:
+        """Get all queue point locations on a specific track."""
+        return [
+            loc
+            for loc in self.locations
+            if loc.location_type == LocationType.QUEUE and loc.track_id == track_id
+        ]
+
+    def get_quadrant_points(self) -> list[dict[str, Any]]:
+        """Get all quadrant reference points for snap-to-grid.
+
+        Quadrant points are at 60mm and 180mm intervals within each tile.
+        This matches TrackDesigner's quadrant system.
+        """
+        quadrant_offsets = [60, 180]
+        points = []
+
+        for row in range(self.rows):
+            for col in range(self.cols):
+                # Skip disabled tiles
+                if GridPosition(col, row) in self.disabled_tiles:
+                    continue
+
+                tile_x = col * TILE_SIZE_MM
+                tile_y = row * TILE_SIZE_MM
+
+                for qx in quadrant_offsets:
+                    for qy in quadrant_offsets:
+                        points.append(
+                            {
+                                "tile_col": col,
+                                "tile_row": row,
+                                "quadrant_x": 0 if qx == 60 else 1,
+                                "quadrant_y": 0 if qy == 60 else 1,
+                                "absolute_x": tile_x + qx,
+                                "absolute_y": tile_y + qy,
+                            }
+                        )
+
+        return points
+
     def to_dict(self) -> dict[str, Any]:
         return {
             "name": self.name,
@@ -234,6 +473,8 @@ class DeckConfig:
             "height_mm": self.height_mm,
             "tiles": [tile.to_dict() for tile in self.get_all_tiles()],
             "stations": [station.to_dict() for station in self.stations],
+            "tracks": [track.to_dict() for track in self.tracks],
+            "locations": [location.to_dict() for location in self.locations],
         }
 
 
