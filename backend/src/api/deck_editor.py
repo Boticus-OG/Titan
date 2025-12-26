@@ -165,10 +165,12 @@ async def resize_grid(data: GridResize) -> dict:
         t for t in deck.disabled_tiles if t.col < data.cols and t.row < data.rows
     ]
 
-    # Update deck
-    # Note: This needs to update the TitanApp's deck reference
-    # For now, just save to storage
+    # Update in-memory deck configuration
+    deck.cols = data.cols
+    deck.rows = data.rows
+    deck.disabled_tiles = new_disabled
 
+    # Persist to storage
     await _deck_storage.save_deck_config(deck.name, data.cols, data.rows, new_disabled)
 
     return {
@@ -177,6 +179,33 @@ async def resize_grid(data: GridResize) -> dict:
         "rows": data.rows,
         "width_mm": data.cols * 240,
         "height_mm": data.rows * 240,
+    }
+
+
+@router.post("/clear")
+async def clear_tiles() -> dict:
+    """Clear all tiles (disable all tiles).
+
+    Useful for starting fresh with tile layout.
+    """
+    deck = _get_deck()
+    if _deck_storage is None:
+        raise HTTPException(status_code=500, detail="Storage not initialized")
+
+    # Disable all tiles
+    deck.disabled_tiles.clear()
+    for col in range(deck.cols):
+        for row in range(deck.rows):
+            deck.disabled_tiles.append(GridPosition(col=col, row=row))
+
+    # Persist to storage
+    await _deck_storage.save_deck_config(
+        deck.name, deck.cols, deck.rows, deck.disabled_tiles
+    )
+
+    return {
+        "status": "cleared",
+        "disabled_count": len(deck.disabled_tiles),
     }
 
 

@@ -37,9 +37,27 @@ const tileSize = computed(() => {
   return props.deck.tile_size_mm * PIXELS_PER_MM
 })
 
-// Convert mm to pixels
-function mmToPixels(mm: number): number {
+// Convert mm to pixels (X axis - left to right)
+function mmToPixelsX(mm: number): number {
   return mm * PIXELS_PER_MM + PADDING
+}
+
+// Convert mm to pixels (Y axis - FLIPPED for lower-left origin like Track Designer)
+function mmToPixelsY(mm: number): number {
+  if (!props.deck) return PADDING
+  // Flip Y: origin at bottom-left, Y increases upward
+  return (props.deck.height_mm - mm) * PIXELS_PER_MM + PADDING
+}
+
+// Legacy function for tile bounds (uses top-left for X, but Y needs flipping)
+function tileBoundsToPixels(bounds: [number, number, number, number]): { x: number, y: number } {
+  // bounds = [x_min, y_min, x_max, y_max]
+  // We want top-left corner of the visual rect, but with Y flipped
+  // So we use x_min for X, but for Y we need to flip y_max (which becomes visual top)
+  return {
+    x: bounds[0] * PIXELS_PER_MM + PADDING,
+    y: (props.deck.height_mm - bounds[3]) * PIXELS_PER_MM + PADDING
+  }
 }
 
 // Get station color
@@ -53,13 +71,13 @@ function getStationColor(deviceType: string): string {
   return colors[deviceType] || '#888'
 }
 
-// Get mover position safely
+// Get mover position safely (with Y flipped for lower-left origin)
 function getMoverX(mover: MoverState): number {
-  return mmToPixels(mover.physical?.position?.x ?? 0)
+  return mmToPixelsX(mover.physical?.position?.x ?? 0)
 }
 
 function getMoverY(mover: MoverState): number {
-  return mmToPixels(mover.physical?.position?.y ?? 0)
+  return mmToPixelsY(mover.physical?.position?.y ?? 0)
 }
 
 function getMoverState(mover: MoverState): string {
@@ -83,13 +101,13 @@ function getMoverState(mover: MoverState): string {
         fill="#0f0f0f"
       />
 
-      <!-- Stator Tiles -->
+      <!-- Stator Tiles (Y-flipped for lower-left origin) -->
       <g class="tiles">
         <rect
           v-for="(tile, i) in deck.tiles"
           :key="'tile-' + i"
-          :x="mmToPixels(tile.bounds[0])"
-          :y="mmToPixels(tile.bounds[1])"
+          :x="tileBoundsToPixels(tile.bounds).x"
+          :y="tileBoundsToPixels(tile.bounds).y"
           :width="tileSize"
           :height="tileSize"
           :fill="tile.enabled ? '#1e293b' : '#0c0c0c'"
@@ -98,7 +116,7 @@ function getMoverState(mover: MoverState): string {
         />
       </g>
 
-      <!-- Stations -->
+      <!-- Stations (Y-flipped for lower-left origin) -->
       <g class="stations">
         <g
           v-for="(station, i) in deck.stations"
@@ -108,8 +126,8 @@ function getMoverState(mover: MoverState): string {
           @click="emit('select-station', station)"
         >
           <rect
-            :x="mmToPixels(station.position.x) - tileSize/2 + 8"
-            :y="mmToPixels(station.position.y) - tileSize/2 + 8"
+            :x="mmToPixelsX(station.position.x) - tileSize/2 + 8"
+            :y="mmToPixelsY(station.position.y) - tileSize/2 + 8"
             :width="tileSize - 16"
             :height="tileSize - 16"
             :fill="getStationColor(station.device_type)"
@@ -119,8 +137,8 @@ function getMoverState(mover: MoverState): string {
             rx="4"
           />
           <text
-            :x="mmToPixels(station.position.x)"
-            :y="mmToPixels(station.position.y)"
+            :x="mmToPixelsX(station.position.x)"
+            :y="mmToPixelsY(station.position.y)"
             text-anchor="middle"
             dominant-baseline="middle"
             fill="white"

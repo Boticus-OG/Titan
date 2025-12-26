@@ -11,6 +11,7 @@
       </div>
       <nav class="header-nav">
         <NuxtLink to="/" class="nav-link">Deck</NuxtLink>
+        <NuxtLink to="/deck-editor" class="nav-link">Track Designer</NuxtLink>
         <NuxtLink to="/workflows" class="nav-link">Workflows</NuxtLink>
         <NuxtLink to="/actors" class="nav-link">Actors</NuxtLink>
       </nav>
@@ -30,7 +31,8 @@
 .layout {
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
 }
 
 .header {
@@ -113,6 +115,8 @@
 
 .main {
   flex: 1;
+  min-height: 0; /* Flexbox fix: allows shrinking below content size */
   padding: var(--space-4);
+  overflow: hidden;
 }
 </style>

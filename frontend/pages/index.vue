@@ -281,8 +281,15 @@ onMounted(async () => {
 
 <style scoped>
 .deck-page {
-  height: calc(100vh - 60px);
-  overflow: hidden;
+  height: 100%;
+  display: flex;
+  background: #2c3e50;
+  color: white;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  /* Full-bleed: counteract layout padding */
+  margin: calc(-1 * var(--space-4));
+  width: calc(100% + 2 * var(--space-4));
+  height: calc(100% + 2 * var(--space-4));
 }
 
 .error-banner {
@@ -306,50 +313,96 @@ onMounted(async () => {
 }
 
 .content-grid {
-  display: grid;
-  grid-template-columns: 1fr 320px;
-  gap: var(--space-4);
+  display: flex;
+  width: 100%;
   height: 100%;
+  gap: 0;
 }
 
+/* Main deck area - matches Track Designer canvas area */
 .deck-panel {
+  flex: 1;
   display: flex;
   flex-direction: column;
   min-height: 0;
+  min-width: 0;
+  background: #f0f0f0;
 }
 
 .panel-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: var(--space-3);
+  padding: 8px 15px;
+  background: #34495e;
+  color: white;
 }
 
 .panel-header h2 {
-  font-size: var(--text-lg);
+  font-size: 14px;
   font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #3498db;
+  margin: 0;
 }
 
 .panel-actions {
   display: flex;
-  gap: var(--space-2);
+  gap: 6px;
 }
 
+.panel-actions .btn {
+  width: auto;
+  margin-bottom: 0;
+  padding: 6px 12px;
+  font-size: 12px;
+}
+
+/* Side panel - matches Track Designer sidebar */
 .side-panel {
+  width: 300px;
+  flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: 0;
+  background: #2c3e50;
+  padding: 15px;
   overflow-y: auto;
+  min-height: 0;
 }
 
 .loading {
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 300px;
-  color: var(--color-text-muted);
-  background: var(--color-surface);
-  border-radius: var(--radius-lg);
+  flex: 1;
+  color: #7f8c8d;
+  background: #ecf0f1;
+}
+
+/* Cards - Track Designer section style */
+.card {
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin-bottom: 20px;
+  padding-bottom: 15px;
+  border-bottom: 1px solid #34495e;
+}
+
+.card:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+}
+
+.card-header {
+  font-size: 14px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #3498db;
+  margin-bottom: 12px;
 }
 
 /* Inspector */
@@ -358,29 +411,31 @@ onMounted(async () => {
 }
 
 .inspector-content h3 {
-  font-size: var(--text-base);
+  font-size: var(--text-sm);
   font-weight: 600;
-  margin-bottom: var(--space-3);
+  margin-bottom: 10px;
+  color: white;
 }
 
 .inspector-empty {
   text-align: center;
-  padding: var(--space-4);
+  padding: 15px;
+  color: #7f8c8d;
 }
 
 .info-list {
   display: grid;
   grid-template-columns: auto 1fr;
-  gap: var(--space-2) var(--space-3);
-  font-size: var(--text-sm);
+  gap: 6px 12px;
+  font-size: 12px;
 }
 
 .info-list dt {
-  color: var(--color-text-muted);
+  color: #95a5a6;
 }
 
 .info-list dd {
-  color: var(--color-text-primary);
+  color: white;
 }
 
 /* Status Card */
@@ -391,7 +446,7 @@ onMounted(async () => {
 .status-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: var(--space-3);
+  gap: 8px;
 }
 
 .status-item {
@@ -399,17 +454,20 @@ onMounted(async () => {
   flex-direction: column;
   align-items: center;
   text-align: center;
+  background: #34495e;
+  padding: 10px 8px;
+  border-radius: 4px;
 }
 
 .status-value {
   font-size: var(--text-xl);
   font-weight: 700;
-  color: var(--color-primary);
+  color: #3498db;
 }
 
 .status-label {
   font-size: var(--text-xs);
-  color: var(--color-text-muted);
+  color: #bdc3c7;
 }
 
 .btn:disabled {
@@ -422,15 +480,34 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   min-height: 0;
+  padding: 0;
 }
 
 .debug-info {
-  background: var(--color-surface-elevated);
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-sm);
+  background: #34495e;
+  padding: 6px 12px;
   font-size: var(--text-xs);
   font-family: var(--font-mono);
-  color: var(--color-text-secondary);
-  margin-bottom: var(--space-2);
+  color: #bdc3c7;
+}
+
+/* Badge overrides for dark theme */
+.badge {
+  font-weight: 600;
+}
+
+.badge-success {
+  background: rgba(39, 174, 96, 0.3);
+  color: #2ecc71;
+}
+
+.badge-warning {
+  background: rgba(243, 156, 18, 0.3);
+  color: #f39c12;
+}
+
+.badge-info {
+  background: rgba(52, 152, 219, 0.3);
+  color: #3498db;
 }
 </style>
