@@ -1,0 +1,30 @@
+{
+  "devices": [
+    {
+      "device_id": "dev_1766858375237_8cp6576",
+      "name": "Dispenser",
+      "device_type": "dispenser",
+      "device_class": "titan_native",
+      "footprint": {
+        "width": 240.0,
+        "height": 240.0
+      },
+      "position": {
+        "x": 480.0,
+        "y": 720.0
+      },
+      "orientation": 180,
+      "nest": {
+        "x": 120.0,
+        "y": 300.0,
+        "expected_plate_orientation": 0
+      },
+      "overhang": {
+        "width": 120.0,
+        "depth": 120.0,
+        "offset_x": 60.0,
+        "offset_y": 240.0
+      }
+    }
+  ]
+}

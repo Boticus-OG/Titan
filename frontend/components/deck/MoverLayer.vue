@@ -1,6 +1,7 @@
 <script setup lang="ts">
 /**
  * MoverLayer - Real-time mover position visualization
+ * Uses lower-left origin coordinate system
  */
 
 import type { MoverState } from '~/types/deck'
@@ -9,6 +10,7 @@ const props = defineProps<{
   movers: MoverState[]
   pixelsPerMm: number
   padding: number
+  maxY: number
   selectedMoverId: string | null
 }>()
 
@@ -16,24 +18,29 @@ const emit = defineEmits<{
   (e: 'mover-click', mover: MoverState): void
 }>()
 
-// Convert mm to pixels
-function mmToPixels(mm: number): number {
+// Convert mm to pixels (X axis - no inversion)
+function mmToPixelsX(mm: number): number {
   return mm * props.pixelsPerMm + props.padding
+}
+
+// Convert mm to pixels (Y axis - inverted for lower-left origin)
+function mmToPixelsY(mm: number): number {
+  return (props.maxY - mm) * props.pixelsPerMm + props.padding
 }
 
 // Get mover X position
 function getMoverX(mover: MoverState): number {
-  return mmToPixels(mover.physical?.position?.x ?? 0)
+  return mmToPixelsX(mover.physical?.position?.x ?? 0)
 }
 
 // Get mover Y position
 function getMoverY(mover: MoverState): number {
-  return mmToPixels(mover.physical?.position?.y ?? 0)
+  return mmToPixelsY(mover.physical?.position?.y ?? 0)
 }
 
-// Get mover rotation
+// Get mover rotation (negate for Y-inversion)
 function getMoverRotation(mover: MoverState): number {
-  return mover.physical?.position?.c ?? 0
+  return -(mover.physical?.position?.c ?? 0)
 }
 
 // Get mover state
@@ -46,11 +53,11 @@ function getMoverColor(mover: MoverState): string {
   const state = getMoverStateStr(mover)
   switch (state) {
     case 'idle':
-      return '#60a5fa'
+      return 'var(--color-mover)'
     case 'assigned':
-      return '#fbbf24'
+      return 'var(--color-plate)'
     case 'transporting':
-      return '#22d3ee'
+      return 'var(--color-mover-active)'
     default:
       return '#94a3b8'
   }
@@ -84,7 +91,7 @@ function isSelected(mover: MoverState): boolean {
         stroke-width="1"
       />
 
-      <!-- Direction indicator (front of mover) -->
+      <!-- Direction indicator (front of mover - points up in local coords) -->
       <polygon
         :points="`${getMoverX(mover)},${getMoverY(mover) - 25} ${getMoverX(mover) - 6},${getMoverY(mover) - 18} ${getMoverX(mover) + 6},${getMoverY(mover) - 18}`"
         fill="white"
@@ -108,7 +115,7 @@ function isSelected(mover: MoverState): boolean {
         :cx="getMoverX(mover)"
         :cy="getMoverY(mover) - 32"
         r="8"
-        fill="#fbbf24"
+        fill="var(--color-plate)"
         stroke="white"
         stroke-width="1"
       >

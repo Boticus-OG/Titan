@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * DeckEditor - Visual deck configuration tool
+ * DeckEditor - Visual deck configuration tool (Track Designer style)
  *
  * Features:
  * - Toggle tiles on/off for device placement
@@ -8,6 +8,7 @@
  * - Snap-to-grid (5mm) and snap-to-quadrant-lines (60mm/180mm)
  * - Place waypoints, pivots, and queue points
  * - Real-time mover position overlay
+ * - Lower-left origin coordinate system
  */
 
 import type {
@@ -33,13 +34,25 @@ const emit = defineEmits<{
   (e: 'location-created', location: Partial<Location>): void
   (e: 'location-updated', locationId: string, x: number, y: number): void
   (e: 'location-deleted', locationId: string): void
+  (e: 'grid-resize', cols: number, rows: number): void
+  (e: 'clear-tiles'): void
 }>()
 
 // Visualization constants
 const PIXELS_PER_MM = 0.5
-const PADDING = 40
+const PADDING = 50
 const TILE_SIZE = 240
 const QUADRANT_OFFSETS = [60, 180]
+
+// Grid size inputs
+const gridRows = ref(props.deck.rows)
+const gridCols = ref(props.deck.cols)
+
+// Watch for deck changes to update inputs
+watch(() => props.deck, (newDeck) => {
+  gridRows.value = newDeck.rows
+  gridCols.value = newDeck.cols
+}, { immediate: true })
 
 // Editor state
 const editorState = reactive({
@@ -51,6 +64,7 @@ const editorState = reactive({
   showTracks: true,
   showQueuePoints: true,
   showLocations: true,
+  showCoordinates: false,
 })
 
 // Selection state
@@ -76,12 +90,45 @@ const viewHeight = computed(() => {
   return props.deck.height_mm * PIXELS_PER_MM + PADDING * 2
 })
 
-// Convert pixels to mm
-function pixelsToMm(pixels: number): number {
+// Count of active tiles
+const activeTileCount = computed(() => {
+  return props.deck.tiles?.filter(t => t.enabled).length || 0
+})
+
+// Total tile count
+const totalTileCount = computed(() => {
+  return props.deck.tiles?.length || 0
+})
+
+// Get the maximum Y for coordinate inversion (lower-left origin)
+const maxY = computed(() => props.deck.height_mm)
+
+// Format coordinate with fixed width (5 digits, 2 decimals = "00000.00")
+function formatCoord(value: number): string {
+  return value.toFixed(2).padStart(8, ' ')
+}
+
+// Convert pixels to mm (with Y inversion for lower-left origin)
+function pixelsToMmX(pixels: number): number {
   return (pixels - PADDING) / PIXELS_PER_MM
 }
 
-// Convert mm to pixels
+function pixelsToMmY(pixels: number): number {
+  // Invert Y for lower-left origin
+  return maxY.value - (pixels - PADDING) / PIXELS_PER_MM
+}
+
+// Convert mm to pixels (with Y inversion for lower-left origin)
+function mmToPixelsX(mm: number): number {
+  return mm * PIXELS_PER_MM + PADDING
+}
+
+function mmToPixelsY(mm: number): number {
+  // Invert Y: bottom (0) becomes top in SVG, top (maxY) becomes bottom
+  return (maxY.value - mm) * PIXELS_PER_MM + PADDING
+}
+
+// Legacy mmToPixels for components that don't need Y inversion
 function mmToPixels(mm: number): number {
   return mm * PIXELS_PER_MM + PADDING
 }
@@ -113,12 +160,12 @@ function snapPosition(x: number, y: number): { x: number; y: number } {
   }
 }
 
-// Get position from mouse event
+// Get position from mouse event (with Y inversion)
 function getEventPosition(event: MouseEvent): { x: number; y: number } {
   const svg = event.currentTarget as SVGElement
   const rect = svg.getBoundingClientRect()
-  const x = pixelsToMm(event.clientX - rect.left)
-  const y = pixelsToMm(event.clientY - rect.top)
+  const x = pixelsToMmX(event.clientX - rect.left)
+  const y = pixelsToMmY(event.clientY - rect.top)
   return snapPosition(x, y)
 }
 
@@ -220,12 +267,28 @@ function handleLocationMoved(locationId: string, x: number, y: number) {
 
 // Set editor mode
 function setMode(mode: EditorMode) {
-  editorState.mode = mode
+  // Toggle mode off if clicking same button
+  if (editorState.mode === mode && mode !== 'view') {
+    editorState.mode = 'view'
+  } else {
+    editorState.mode = mode
+  }
+
   // Reset drawing state when changing modes
-  if (mode !== 'draw_track') {
+  if (editorState.mode !== 'draw_track') {
     isDrawingTrack.value = false
     drawingTrack.value = { start: null, current: null }
   }
+}
+
+// Create grid with specified dimensions
+function createGrid() {
+  emit('grid-resize', gridCols.value, gridRows.value)
+}
+
+// Clear all tiles
+function clearTiles() {
+  emit('clear-tiles')
 }
 
 // Cancel current operation (Escape key)
@@ -250,6 +313,17 @@ function handleKeyDown(event: KeyboardEvent) {
   }
 }
 
+// Get mode display text
+const modeText = computed(() => {
+  const modes: Record<string, string> = {
+    'view': 'Select',
+    'edit_tiles': 'Toggle Tile',
+    'draw_track': 'Drawing Track',
+    'place_location': 'Place Location',
+  }
+  return modes[editorState.mode] || 'Select'
+})
+
 // Set up keyboard listeners
 onMounted(() => {
   window.addEventListener('keydown', handleKeyDown)
@@ -262,195 +336,225 @@ onUnmounted(() => {
 
 <template>
   <div class="deck-editor" tabindex="0">
-    <!-- Toolbar -->
-    <div class="editor-toolbar">
-      <div class="toolbar-section">
-        <span class="toolbar-label">Mode:</span>
-        <button
-          :class="{ active: editorState.mode === 'view' }"
-          @click="setMode('view')"
-        >
-          View
-        </button>
-        <button
-          :class="{ active: editorState.mode === 'edit_tiles' }"
-          @click="setMode('edit_tiles')"
-        >
-          Edit Tiles
-        </button>
-        <button
-          :class="{ active: editorState.mode === 'draw_track' }"
-          @click="setMode('draw_track')"
-        >
-          Draw Track
-        </button>
-        <button
-          :class="{ active: editorState.mode === 'place_location' }"
-          @click="setMode('place_location'); editorState.selectedTool = 'place_waypoint'"
-        >
-          Place Location
-        </button>
-      </div>
+    <div class="editor-layout">
+      <!-- Sidebar -->
+      <div class="editor-sidebar">
+        <h2 class="sidebar-title">Titan Deck Editor</h2>
 
-      <div v-if="editorState.mode === 'place_location'" class="toolbar-section">
-        <span class="toolbar-label">Type:</span>
-        <button
-          :class="{ active: editorState.selectedTool === 'place_waypoint' }"
-          @click="editorState.selectedTool = 'place_waypoint'"
-        >
-          Waypoint
-        </button>
-        <button
-          :class="{ active: editorState.selectedTool === 'place_device' }"
-          @click="editorState.selectedTool = 'place_device'"
-        >
-          Device
-        </button>
-        <button
-          :class="{ active: editorState.selectedTool === 'place_queue' }"
-          @click="editorState.selectedTool = 'place_queue'"
-        >
-          Queue
-        </button>
-      </div>
-
-      <div class="toolbar-separator" />
-
-      <div class="toolbar-section toolbar-toggles">
-        <label>
-          <input v-model="editorState.snapToGrid" type="checkbox" />
-          Snap
-        </label>
-        <label>
-          <input v-model="editorState.showQuadrantLines" type="checkbox" />
-          Quadrants
-        </label>
-        <label>
-          <input v-model="editorState.showTracks" type="checkbox" />
-          Tracks
-        </label>
-        <label>
-          <input v-model="editorState.showLocations" type="checkbox" />
-          Locations
-        </label>
-      </div>
-
-      <div class="toolbar-spacer" />
-
-      <!-- Mouse position display -->
-      <div v-if="mousePos" class="mouse-position">
-        X: {{ mousePos.x.toFixed(1) }}mm, Y: {{ mousePos.y.toFixed(1) }}mm
-      </div>
-    </div>
-
-    <!-- Canvas -->
-    <div class="editor-canvas-container">
-      <svg
-        :width="viewWidth"
-        :height="viewHeight"
-        class="editor-canvas"
-        @click="handleCanvasClick"
-        @mousemove="handleMouseMove"
-      >
-        <!-- Background -->
-        <rect
-          x="0"
-          y="0"
-          :width="viewWidth"
-          :height="viewHeight"
-          fill="#0f0f0f"
-        />
-
-        <!-- Deck Grid -->
-        <DeckGrid
-          :deck="deck"
-          :show-quadrant-lines="editorState.showQuadrantLines"
-          :pixels-per-mm="PIXELS_PER_MM"
-          :padding="PADDING"
-          @tile-click="handleTileClick"
-        />
-
-        <!-- Stations (from existing DeckView logic) -->
-        <g class="stations">
-          <g
-            v-for="station in deck.stations"
-            :key="station.station_id"
-            class="station"
+        <!-- Tile Layout Section -->
+        <div class="section">
+          <h3>Tile Layout</h3>
+          <div class="grid-input">
+            <label>Rows:</label>
+            <input v-model.number="gridRows" type="number" min="1" max="20" />
+          </div>
+          <div class="grid-input">
+            <label>Cols:</label>
+            <input v-model.number="gridCols" type="number" min="1" max="20" />
+          </div>
+          <button class="btn btn-primary" @click="createGrid">Create Grid</button>
+          <button class="btn btn-secondary" @click="clearTiles">Clear Tiles</button>
+          <button
+            class="btn"
+            :class="{ active: editorState.mode === 'edit_tiles' }"
+            @click="setMode('edit_tiles')"
           >
+            Toggle Tile
+          </button>
+
+          <!-- Tile Legend -->
+          <div class="legend">
+            <div class="legend-title">Tile states:</div>
+            <div class="legend-items">
+              <div class="legend-item">
+                <div class="legend-swatch" style="background: var(--color-stator);"></div>
+                <span class="legend-label">Active Tile</span>
+              </div>
+              <div class="legend-item">
+                <div class="legend-swatch" style="background: var(--color-stator-disabled);"></div>
+                <span class="legend-label">Empty Space</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Track Drawing Section -->
+        <div class="section">
+          <h3>Track Drawing</h3>
+          <button
+            class="btn"
+            :class="{ active: editorState.mode === 'draw_track' }"
+            @click="setMode('draw_track')"
+          >
+            Draw Track
+          </button>
+          <button
+            class="btn"
+            :class="{ active: editorState.mode === 'place_location' }"
+            @click="setMode('place_location'); editorState.selectedTool = 'place_waypoint'"
+          >
+            Place Location
+          </button>
+          <div style="margin-top: 10px;">
+            <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;">
+              <input v-model="editorState.snapToGrid" type="checkbox" />
+              Snap to Grid (5mm)
+            </label>
+          </div>
+          <div style="margin-top: 5px;">
+            <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;">
+              <input v-model="editorState.showCoordinates" type="checkbox" />
+              Show Coordinates
+            </label>
+          </div>
+        </div>
+
+        <!-- Display Options Section -->
+        <div class="section">
+          <h3>Display Options</h3>
+          <label style="display: flex; align-items: center; gap: 5px; cursor: pointer; margin-bottom: 5px;">
+            <input v-model="editorState.showQuadrantLines" type="checkbox" />
+            Show Quadrant Lines
+          </label>
+          <label style="display: flex; align-items: center; gap: 5px; cursor: pointer; margin-bottom: 5px;">
+            <input v-model="editorState.showTracks" type="checkbox" />
+            Show Tracks
+          </label>
+          <label style="display: flex; align-items: center; gap: 5px; cursor: pointer; margin-bottom: 5px;">
+            <input v-model="editorState.showLocations" type="checkbox" />
+            Show Locations
+          </label>
+        </div>
+      </div>
+
+      <!-- Main Area -->
+      <div class="editor-main">
+        <!-- Toolbar -->
+        <div class="editor-toolbar toolbar">
+          <span>Mode: <span class="mode-indicator">{{ modeText }}</span></span>
+          <div class="toolbar-spacer" />
+          <!-- Mouse position display with fixed width -->
+          <div v-if="mousePos" class="mouse-position">
+            X: {{ formatCoord(mousePos.x) }}mm, Y: {{ formatCoord(mousePos.y) }}mm
+          </div>
+        </div>
+
+        <!-- Canvas -->
+        <div class="editor-canvas-container">
+          <svg
+            :width="viewWidth"
+            :height="viewHeight"
+            class="editor-canvas"
+            @click="handleCanvasClick"
+            @mousemove="handleMouseMove"
+          >
+            <!-- Background -->
             <rect
-              :x="mmToPixels(station.position.x) - (TILE_SIZE * PIXELS_PER_MM)/2 + 8"
-              :y="mmToPixels(station.position.y) - (TILE_SIZE * PIXELS_PER_MM)/2 + 8"
-              :width="(TILE_SIZE * PIXELS_PER_MM) - 16"
-              :height="(TILE_SIZE * PIXELS_PER_MM) - 16"
-              fill-opacity="0.3"
-              stroke-width="2"
-              rx="4"
-              :fill="station.device_type === 'pipetter' ? '#8b5cf6' : station.device_type === 'dispenser' ? '#06b6d4' : station.device_type === 'incubator' ? '#f59e0b' : station.device_type === 'lidmate' ? '#ec4899' : '#888'"
-              :stroke="station.device_type === 'pipetter' ? '#8b5cf6' : station.device_type === 'dispenser' ? '#06b6d4' : station.device_type === 'incubator' ? '#f59e0b' : station.device_type === 'lidmate' ? '#ec4899' : '#888'"
+              x="0"
+              y="0"
+              :width="viewWidth"
+              :height="viewHeight"
+              fill="var(--color-canvas-bg)"
             />
-            <text
-              :x="mmToPixels(station.position.x)"
-              :y="mmToPixels(station.position.y)"
-              text-anchor="middle"
-              dominant-baseline="middle"
-              fill="white"
-              font-size="11"
-              font-weight="600"
-            >
-              {{ station.name }}
-            </text>
-          </g>
-        </g>
 
-        <!-- Tracks Layer -->
-        <TrackLayer
-          v-if="editorState.showTracks && deck.tracks"
-          :tracks="deck.tracks"
-          :drawing-track="isDrawingTrack ? drawingTrack : null"
-          :pixels-per-mm="PIXELS_PER_MM"
-          :padding="PADDING"
-          :selected-track-id="selectedTrackId"
-          @track-click="handleTrackClick2"
-        />
+            <!-- Deck Grid -->
+            <DeckGrid
+              :deck="deck"
+              :show-quadrant-lines="editorState.showQuadrantLines"
+              :pixels-per-mm="PIXELS_PER_MM"
+              :padding="PADDING"
+              @tile-click="handleTileClick"
+            />
 
-        <!-- Locations Layer -->
-        <LocationLayer
-          v-if="editorState.showLocations && deck.locations"
-          :locations="deck.locations"
-          :pixels-per-mm="PIXELS_PER_MM"
-          :padding="PADDING"
-          :editable="editorState.mode === 'place_location'"
-          :selected-location-id="selectedLocationId"
-          @location-click="handleLocationClick2"
-          @location-moved="handleLocationMoved"
-        />
+            <!-- Stations (from existing DeckView logic) -->
+            <g class="stations">
+              <g
+                v-for="station in deck.stations"
+                :key="station.station_id"
+                class="station"
+              >
+                <rect
+                  :x="mmToPixelsX(station.position.x) - (TILE_SIZE * PIXELS_PER_MM)/2 + 8"
+                  :y="mmToPixelsY(station.position.y) - (TILE_SIZE * PIXELS_PER_MM)/2 + 8"
+                  :width="(TILE_SIZE * PIXELS_PER_MM) - 16"
+                  :height="(TILE_SIZE * PIXELS_PER_MM) - 16"
+                  fill-opacity="0.3"
+                  stroke-width="2"
+                  rx="4"
+                  :fill="station.device_type === 'pipetter' ? 'var(--color-station-pipetter)' : station.device_type === 'dispenser' ? 'var(--color-station-dispenser)' : station.device_type === 'incubator' ? 'var(--color-station-incubator)' : station.device_type === 'lidmate' ? 'var(--color-station-lidmate)' : '#888'"
+                  :stroke="station.device_type === 'pipetter' ? 'var(--color-station-pipetter)' : station.device_type === 'dispenser' ? 'var(--color-station-dispenser)' : station.device_type === 'incubator' ? 'var(--color-station-incubator)' : station.device_type === 'lidmate' ? 'var(--color-station-lidmate)' : '#888'"
+                />
+                <text
+                  :x="mmToPixelsX(station.position.x)"
+                  :y="mmToPixelsY(station.position.y)"
+                  text-anchor="middle"
+                  dominant-baseline="middle"
+                  fill="white"
+                  font-size="11"
+                  font-weight="600"
+                >
+                  {{ station.name }}
+                </text>
+              </g>
+            </g>
 
-        <!-- Movers Layer (always on top) -->
-        <MoverLayer
-          :movers="movers"
-          :pixels-per-mm="PIXELS_PER_MM"
-          :padding="PADDING"
-          :selected-mover-id="selectedMoverId"
-          @mover-click="handleMoverClick"
-        />
-      </svg>
-    </div>
+            <!-- Tracks Layer -->
+            <TrackLayer
+              v-if="editorState.showTracks && deck.tracks"
+              :tracks="deck.tracks"
+              :drawing-track="isDrawingTrack ? drawingTrack : null"
+              :pixels-per-mm="PIXELS_PER_MM"
+              :padding="PADDING"
+              :max-y="maxY"
+              :selected-track-id="selectedTrackId"
+              @track-click="handleTrackClick2"
+            />
 
-    <!-- Status bar -->
-    <div class="editor-status">
-      <span>{{ deck.cols }}x{{ deck.rows }} grid ({{ deck.width_mm }}mm x {{ deck.height_mm }}mm)</span>
-      <span v-if="editorState.mode === 'draw_track' && isDrawingTrack">
-        Click to place track end point. Press Escape to cancel.
-      </span>
-      <span v-else-if="editorState.mode === 'draw_track'">
-        Click to place track start point.
-      </span>
-      <span v-else-if="editorState.mode === 'edit_tiles'">
-        Click tiles to toggle enabled/disabled.
-      </span>
-      <span v-else-if="editorState.mode === 'place_location'">
-        Click to place {{ editorState.selectedTool?.replace('place_', '') }}.
-      </span>
+            <!-- Locations Layer -->
+            <LocationLayer
+              v-if="editorState.showLocations && deck.locations"
+              :locations="deck.locations"
+              :pixels-per-mm="PIXELS_PER_MM"
+              :padding="PADDING"
+              :max-y="maxY"
+              :editable="editorState.mode === 'place_location'"
+              :selected-location-id="selectedLocationId"
+              @location-click="handleLocationClick2"
+              @location-moved="handleLocationMoved"
+            />
+
+            <!-- Movers Layer (always on top) -->
+            <MoverLayer
+              :movers="movers"
+              :pixels-per-mm="PIXELS_PER_MM"
+              :padding="PADDING"
+              :max-y="maxY"
+              :selected-mover-id="selectedMoverId"
+              @mover-click="handleMoverClick"
+            />
+          </svg>
+        </div>
+
+        <!-- Status bar -->
+        <div class="editor-status">
+          <span>{{ deck.cols }}x{{ deck.rows }} grid • {{ activeTileCount }}/{{ totalTileCount }} active tiles • {{ deck.width_mm }}mm x {{ deck.height_mm }}mm</span>
+          <span v-if="editorState.mode === 'draw_track' && isDrawingTrack">
+            Click to place track end point. Press Escape to cancel.
+          </span>
+          <span v-else-if="editorState.mode === 'draw_track'">
+            Click to place track start point.
+          </span>
+          <span v-else-if="editorState.mode === 'edit_tiles'">
+            Click tiles to toggle between active/empty.
+          </span>
+          <span v-else-if="editorState.mode === 'place_location'">
+            Click to place {{ editorState.selectedTool?.replace('place_', '') }}.
+          </span>
+          <span v-else>
+            Select mode - Click on elements to select them.
+          </span>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -463,85 +567,78 @@ onUnmounted(() => {
   outline: none;
 }
 
+.editor-layout {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+.editor-sidebar {
+  width: 320px;
+  min-width: 250px;
+  max-width: 500px;
+  flex-shrink: 0;
+  background: var(--color-surface);
+  color: white;
+  padding: 20px;
+  overflow-y: auto;
+  resize: horizontal;
+  position: relative;
+}
+
+.editor-sidebar::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 5px;
+  background: var(--color-surface-elevated);
+  cursor: ew-resize;
+}
+
+.sidebar-title {
+  margin-bottom: 20px;
+  color: var(--color-accent);
+  font-size: 18px;
+}
+
+.editor-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
 .editor-toolbar {
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  padding: var(--space-2) var(--space-3);
-  background: var(--color-surface);
-  border-bottom: 1px solid var(--color-border);
+  padding: var(--space-2) var(--space-4);
+  background: var(--color-surface-elevated);
+  color: white;
   flex-wrap: wrap;
-}
-
-.toolbar-section {
-  display: flex;
-  align-items: center;
-  gap: var(--space-1);
-}
-
-.toolbar-label {
-  font-size: var(--text-xs);
-  color: var(--color-text-muted);
-  margin-right: var(--space-1);
-}
-
-.toolbar-separator {
-  width: 1px;
-  height: 24px;
-  background: var(--color-border);
 }
 
 .toolbar-spacer {
   flex: 1;
 }
 
-.toolbar-toggles label {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: var(--text-xs);
-  color: var(--color-text-secondary);
-  cursor: pointer;
-}
-
-.toolbar-toggles input {
-  cursor: pointer;
-}
-
-.editor-toolbar button {
-  padding: var(--space-1) var(--space-2);
-  font-size: var(--text-xs);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: var(--color-surface-elevated);
-  color: var(--color-text-primary);
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.editor-toolbar button:hover {
-  background: var(--color-surface-hover);
-}
-
-.editor-toolbar button.active {
-  background: var(--color-primary);
-  color: white;
-  border-color: var(--color-primary);
-}
-
 .mouse-position {
   font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  color: var(--color-text-muted);
-  background: var(--color-surface-elevated);
-  padding: 2px 8px;
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+  background: var(--color-surface);
+  padding: 4px 12px;
   border-radius: var(--radius-sm);
+  min-width: 240px;
+  text-align: right;
 }
 
 .editor-canvas-container {
   flex: 1;
   overflow: auto;
-  background: #1a1a1a;
+  background: var(--color-canvas-bg);
   display: flex;
   justify-content: center;
   align-items: flex-start;
@@ -549,17 +646,17 @@ onUnmounted(() => {
 }
 
 .editor-canvas {
-  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.3));
+  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.2));
   cursor: crosshair;
 }
 
 .editor-status {
   display: flex;
   justify-content: space-between;
-  padding: var(--space-2) var(--space-3);
+  padding: var(--space-2) var(--space-4);
   background: var(--color-surface);
-  border-top: 1px solid var(--color-border);
+  border-top: 1px solid var(--color-surface-elevated);
   font-size: var(--text-xs);
-  color: var(--color-text-muted);
+  color: white;
 }
 </style>

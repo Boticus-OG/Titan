@@ -30,6 +30,18 @@ class DeviceType(str, Enum):
     HOTEL = "hotel"
     NEST = "nest"
     BARCODE_READER = "barcode_reader"
+    CENTRIFUGE = "centrifuge"
+    LABELER = "labeler"
+    SEALER = "sealer"
+    PEELER = "peeler"
+    ROBOT = "robot"
+
+
+class DeviceClass(str, Enum):
+    """Classification of devices by placement behavior."""
+
+    TITAN_NATIVE = "titan_native"  # Grid-aligned, has overhang
+    THIRD_PARTY = "third_party"  # Free placement, off-grid
 
 
 class LocationType(str, Enum):
@@ -241,6 +253,152 @@ class Location:
 
 
 @dataclass
+class Footprint:
+    """Device footprint dimensions in millimeters."""
+
+    width: float
+    height: float
+
+    def to_dict(self) -> dict[str, float]:
+        return {"width": self.width, "height": self.height}
+
+
+@dataclass
+class Overhang:
+    """End-effector overhang area that extends over the deck."""
+
+    width: float  # Width of overhang (typically half of body width)
+    depth: float  # How far it extends over the tile
+    offset_x: float  # X offset from device origin
+    offset_y: float  # Y offset from device origin
+
+    def to_dict(self) -> dict[str, float]:
+        return {
+            "width": self.width,
+            "depth": self.depth,
+            "offset_x": self.offset_x,
+            "offset_y": self.offset_y,
+        }
+
+
+@dataclass
+class Nest:
+    """Plate presentation point within a device."""
+
+    x: float  # X offset from device origin
+    y: float  # Y offset from device origin
+    expected_plate_orientation: int = 0  # 0, 90, 180, 270 degrees
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "x": self.x,
+            "y": self.y,
+            "expected_plate_orientation": self.expected_plate_orientation,
+        }
+
+
+@dataclass
+class Device:
+    """A configured device in the workcell.
+
+    Devices can be Titan-native (grid-aligned with overhang) or
+    third-party (freely placed in surrounding space).
+    """
+
+    device_id: str
+    name: str
+    device_type: DeviceType
+    device_class: DeviceClass
+
+    # Geometry
+    footprint: Footprint
+
+    # Position (absolute coordinates in mm)
+    position_x: float
+    position_y: float
+    orientation: int = 0  # 0, 90, 180, 270 degrees
+
+    # Grid position (for Titan-native devices)
+    grid_col: int | None = None
+    grid_row: int | None = None
+
+    # Nest location (relative to device origin)
+    nest: Nest = field(default_factory=lambda: Nest(x=0, y=0))
+
+    # Overhang (for Titan-native devices)
+    overhang: Overhang | None = None
+
+    # DeviceHub reference
+    device_hub_id: str | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        result = {
+            "device_id": self.device_id,
+            "name": self.name,
+            "device_type": self.device_type.value,
+            "device_class": self.device_class.value,
+            "footprint": self.footprint.to_dict(),
+            "position": {"x": self.position_x, "y": self.position_y},
+            "orientation": self.orientation,
+            "nest": self.nest.to_dict(),
+        }
+
+        if self.grid_col is not None and self.grid_row is not None:
+            result["grid_pos"] = {"col": self.grid_col, "row": self.grid_row}
+
+        if self.overhang:
+            result["overhang"] = self.overhang.to_dict()
+
+        if self.device_hub_id:
+            result["device_hub_id"] = self.device_hub_id
+
+        return result
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> Device:
+        """Create Device from dictionary."""
+        footprint = Footprint(
+            width=data["footprint"]["width"],
+            height=data["footprint"]["height"],
+        )
+
+        nest_data = data.get("nest", {})
+        nest = Nest(
+            x=nest_data.get("x", 0),
+            y=nest_data.get("y", 0),
+            expected_plate_orientation=nest_data.get("expected_plate_orientation", 0),
+        )
+
+        overhang = None
+        if "overhang" in data and data["overhang"]:
+            oh = data["overhang"]
+            overhang = Overhang(
+                width=oh.get("width", 0),
+                depth=oh.get("depth", 0),
+                offset_x=oh.get("offset_x", 0),
+                offset_y=oh.get("offset_y", 0),
+            )
+
+        grid_pos = data.get("grid_pos", {})
+
+        return cls(
+            device_id=data["device_id"],
+            name=data["name"],
+            device_type=DeviceType(data["device_type"]),
+            device_class=DeviceClass(data["device_class"]),
+            footprint=footprint,
+            position_x=data["position"]["x"],
+            position_y=data["position"]["y"],
+            orientation=data.get("orientation", 0),
+            grid_col=grid_pos.get("col"),
+            grid_row=grid_pos.get("row"),
+            nest=nest,
+            overhang=overhang,
+            device_hub_id=data.get("device_hub_id"),
+        )
+
+
+@dataclass
 class StatorTile:
     """A single XPlanar stator tile (240mm x 240mm).
 
@@ -344,6 +502,9 @@ class DeckConfig:
 
     # Locations (teach points)
     locations: list[Location] = field(default_factory=list)
+
+    # Configured devices
+    devices: list[Device] = field(default_factory=list)
 
     @property
     def tile_size_mm(self) -> int:
@@ -475,6 +636,7 @@ class DeckConfig:
             "stations": [station.to_dict() for station in self.stations],
             "tracks": [track.to_dict() for track in self.tracks],
             "locations": [location.to_dict() for location in self.locations],
+            "devices": [device.to_dict() for device in self.devices],
         }
 
 

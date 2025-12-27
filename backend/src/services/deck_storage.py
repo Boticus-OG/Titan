@@ -19,6 +19,11 @@ from ..models.deck import (
     Station,
     Track,
     DeviceType,
+    Device,
+    DeviceClass,
+    Footprint,
+    Overhang,
+    Nest,
 )
 
 logger = logging.getLogger(__name__)
@@ -53,6 +58,46 @@ class DeckStorage:
     @property
     def deck_file(self) -> Path:
         return self.data_dir / "deck_config.json"
+
+    @property
+    def devices_file(self) -> Path:
+        return self.data_dir / "devices.json"
+
+    # =========================================================================
+    # Devices
+    # =========================================================================
+
+    async def load_devices(self) -> list[Device]:
+        """Load devices from devices.json."""
+        if not self.devices_file.exists():
+            return []
+
+        try:
+            with open(self.devices_file) as f:
+                data = json.load(f)
+
+            devices = []
+            for dev_data in data.get("devices", []):
+                devices.append(Device.from_dict(dev_data))
+
+            logger.info(f"Loaded {len(devices)} devices from {self.devices_file}")
+            return devices
+
+        except Exception as e:
+            logger.error(f"Failed to load devices: {e}")
+            return []
+
+    async def save_devices(self, devices: list[Device]) -> None:
+        """Save devices to devices.json."""
+        data = {"devices": [dev.to_dict() for dev in devices]}
+
+        try:
+            with open(self.devices_file, "w") as f:
+                json.dump(data, f, indent=2)
+            logger.info(f"Saved {len(devices)} devices to {self.devices_file}")
+        except Exception as e:
+            logger.error(f"Failed to save devices: {e}")
+            raise
 
     # =========================================================================
     # Locations
@@ -287,6 +332,7 @@ class DeckStorage:
         locations = await self.load_locations()
         tracks = await self.load_tracks()
         stations = await self.load_stations()
+        devices = await self.load_devices()
 
         # Convert disabled tiles from dicts to GridPosition
         disabled_tiles = [
@@ -302,6 +348,7 @@ class DeckStorage:
             stations=stations,
             tracks=tracks,
             locations=locations,
+            devices=devices,
         )
 
     async def save_full_config(self, config: DeckConfig) -> None:
@@ -312,3 +359,4 @@ class DeckStorage:
         await self.save_locations(config.locations)
         await self.save_tracks(config.tracks)
         await self.save_stations(config.stations)
+        await self.save_devices(config.devices)

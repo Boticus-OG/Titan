@@ -1,0 +1,202 @@
+{
+  "tracks": [
+    {
+      "track_id": 1,
+      "name": "Track 1",
+      "start_x": 70.0,
+      "start_y": 660.0,
+      "end_x": 170.0,
+      "end_y": 660.0,
+      "length": 100.0
+    },
+    {
+      "track_id": 2,
+      "name": "Track 2",
+      "start_x": 180.0,
+      "start_y": 650.0,
+      "end_x": 180.0,
+      "end_y": 550.0,
+      "length": 100.0
+    },
+    {
+      "track_id": 3,
+      "name": "Track 3",
+      "start_x": 189.99993800890812,
+      "start_y": 539.9647889506729,
+      "end_x": 890.0,
+      "end_y": 537.5,
+      "length": 700.0044013948083
+    },
+    {
+      "track_id": 4,
+      "name": "Track 4",
+      "start_x": 900.0,
+      "start_y": 527.5,
+      "end_x": 900.0,
+      "end_y": 190.0,
+      "length": 337.5
+    },
+    {
+      "track_id": 5,
+      "name": "Track 5",
+      "start_x": 890.0,
+      "start_y": 180.0,
+      "end_x": 790.0,
+      "end_y": 180.0,
+      "length": 100.0
+    },
+    {
+      "track_id": 6,
+      "name": "Track 6",
+      "start_x": 780.2082881368184,
+      "start_y": 189.9978305672811,
+      "end_x": 780.0090559168169,
+      "end_y": 410.00000410048233,
+      "length": 220.00226374474028
+    },
+    {
+      "track_id": 7,
+      "name": "Track 7",
+      "start_x": 770.0,
+      "start_y": 420.0,
+      "end_x": 550.0,
+      "end_y": 420.0,
+      "length": 220.0
+    },
+    {
+      "track_id": 8,
+      "name": "Track 8",
+      "start_x": 539.8981492288382,
+      "start_y": 410.0005186924314,
+      "end_x": 539.9955717160225,
+      "end_y": 189.999999019515,
+      "length": 220.00054124363942
+    },
+    {
+      "track_id": 9,
+      "name": "Track 9",
+      "start_x": 530.000074376197,
+      "start_y": 179.96143163980508,
+      "end_x": 429.99099485155705,
+      "end_y": 179.5757101507685,
+      "length": 100.00982335967228
+    },
+    {
+      "track_id": 10,
+      "name": "Track 10",
+      "start_x": 420.0,
+      "start_y": 170.0,
+      "end_x": 420.0,
+      "end_y": 70.0,
+      "length": 100.0
+    },
+    {
+      "track_id": 11,
+      "name": "Track 11",
+      "start_x": 410.0,
+      "start_y": 60.0,
+      "end_x": 190.0,
+      "end_y": 60.0,
+      "length": 220.0
+    },
+    {
+      "track_id": 12,
+      "name": "Track 12",
+      "start_x": 179.86302654973025,
+      "start_y": 69.99906186969164,
+      "end_x": 179.9960864836388,
+      "end_y": 410.00000076578056,
+      "length": 340.0009649327013
+    },
+    {
+      "track_id": 13,
+      "name": "Track 13",
+      "start_x": 170.00007795234086,
+      "start_y": 420.03948468994867,
+      "end_x": 69.9905615835506,
+      "end_y": 420.43437224276306,
+      "length": 100.01029597245822
+    },
+    {
+      "track_id": 14,
+      "name": "Track 14",
+      "start_x": 60.0,
+      "start_y": 430.0,
+      "end_x": 60.0,
+      "end_y": 650.0,
+      "length": 220.0
+    },
+    {
+      "track_id": 15,
+      "name": "Track 15",
+      "start_x": 1030.0,
+      "start_y": 660.0,
+      "end_x": 1370.0,
+      "end_y": 660.0,
+      "length": 340.0
+    },
+    {
+      "track_id": 16,
+      "name": "Track 16",
+      "start_x": 1380.0,
+      "start_y": 650.0,
+      "end_x": 1380.0,
+      "end_y": 70.0,
+      "length": 580.0
+    },
+    {
+      "track_id": 17,
+      "name": "Track 17",
+      "start_x": 1370.0000001857431,
+      "start_y": 59.99807260188069,
+      "end_x": 1029.999772461717,
+      "end_y": 59.93254102071566,
+      "length": 340.0002340392986
+    },
+    {
+      "track_id": 18,
+      "name": "Track 18",
+      "start_x": 1020.0,
+      "start_y": 70.0,
+      "end_x": 1020.0,
+      "end_y": 170.0,
+      "length": 100.0
+    },
+    {
+      "track_id": 19,
+      "name": "Track 19",
+      "start_x": 1029.9999958995177,
+      "start_y": 179.99094408318305,
+      "end_x": 1250.0021694327188,
+      "end_y": 179.79171186318163,
+      "length": 220.00226374474022
+    },
+    {
+      "track_id": 20,
+      "name": "Track 20",
+      "start_x": 1260.0,
+      "start_y": 190.0,
+      "end_x": 1260.0,
+      "end_y": 530.0,
+      "length": 340.0
+    },
+    {
+      "track_id": 21,
+      "name": "Track 21",
+      "start_x": 1250.0,
+      "start_y": 540.0,
+      "end_x": 1030.0,
+      "end_y": 540.0,
+      "length": 220.0
+    },
+    {
+      "track_id": 22,
+      "name": "Track 22",
+      "start_x": 1020.0,
+      "start_y": 550.0,
+      "end_x": 1020.0,
+      "end_y": 650.0,
+      "length": 100.0
+    }
+  ]
+}

@@ -1,10 +1,19 @@
 <script setup lang="ts">
 /**
  * DeckView - 2D Top-Down Visualization of XPlanar Deck
- * Simplified version for debugging
+ * Shows tiles, stations, tracks, and movers with layer controls
  */
 
-import type { DeckConfig, MoverState, PlateState, Station } from '~/types/deck'
+import type { DeckConfig, MoverState, PlateState, Station, Track } from '~/types/deck'
+
+// Layer visibility state
+const layers = reactive({
+  tiles: true,
+  stations: true,
+  tracks: true,
+  movers: true,
+  labels: true,
+})
 
 const props = defineProps<{
   deck: DeckConfig
@@ -17,9 +26,9 @@ const emit = defineEmits<{
   (e: 'select-mover', mover: MoverState): void
 }>()
 
-// Visualization scaling
-const PIXELS_PER_MM = 0.5
-const PADDING = 40
+// Visualization scaling - match Track Designer (1:1 scale)
+const PIXELS_PER_MM = 1.0
+const PADDING = 50
 
 // Computed dimensions
 const viewWidth = computed(() => {
@@ -83,6 +92,11 @@ function getMoverY(mover: MoverState): number {
 function getMoverState(mover: MoverState): string {
   return mover.physical?.state ?? 'idle'
 }
+
+// Expose layers for parent component control
+defineExpose({
+  layers
+})
 </script>
 
 <template>
@@ -92,17 +106,8 @@ function getMoverState(mover: MoverState): string {
       :height="viewHeight"
       class="deck-svg"
     >
-      <!-- Background -->
-      <rect
-        x="0"
-        y="0"
-        :width="viewWidth"
-        :height="viewHeight"
-        fill="#0f0f0f"
-      />
-
-      <!-- Stator Tiles (Y-flipped for lower-left origin) -->
-      <g class="tiles">
+      <!-- Stator Tiles (Y-flipped for lower-left origin) - TD style colors -->
+      <g v-if="layers.tiles" class="tiles">
         <rect
           v-for="(tile, i) in deck.tiles"
           :key="'tile-' + i"
@@ -110,14 +115,14 @@ function getMoverState(mover: MoverState): string {
           :y="tileBoundsToPixels(tile.bounds).y"
           :width="tileSize"
           :height="tileSize"
-          :fill="tile.enabled ? '#1e293b' : '#0c0c0c'"
-          stroke="#334155"
-          stroke-width="1"
+          :fill="tile.enabled ? '#34495e' : '#e67e22'"
+          stroke="#2c3e50"
+          stroke-width="2"
         />
       </g>
 
       <!-- Stations (Y-flipped for lower-left origin) -->
-      <g class="stations">
+      <g v-if="layers.stations" class="stations">
         <g
           v-for="(station, i) in deck.stations"
           :key="'station-' + i"
@@ -137,6 +142,7 @@ function getMoverState(mover: MoverState): string {
             rx="4"
           />
           <text
+            v-if="layers.labels"
             :x="mmToPixelsX(station.position.x)"
             :y="mmToPixelsY(station.position.y)"
             text-anchor="middle"
@@ -150,8 +156,67 @@ function getMoverState(mover: MoverState): string {
         </g>
       </g>
 
+      <!-- Tracks (Y-flipped for lower-left origin) -->
+      <g v-if="layers.tracks && deck.tracks" class="tracks">
+        <g
+          v-for="track in deck.tracks"
+          :key="'track-' + track.track_id"
+          class="track"
+        >
+          <!-- Track line -->
+          <line
+            :x1="mmToPixelsX(track.start_x)"
+            :y1="mmToPixelsY(track.start_y)"
+            :x2="mmToPixelsX(track.end_x)"
+            :y2="mmToPixelsY(track.end_y)"
+            stroke="#22d3ee"
+            stroke-width="3"
+            stroke-linecap="round"
+          />
+          <!-- Start point (green) -->
+          <circle
+            :cx="mmToPixelsX(track.start_x)"
+            :cy="mmToPixelsY(track.start_y)"
+            r="5"
+            fill="#22c55e"
+            stroke="white"
+            stroke-width="1"
+          />
+          <!-- End point (red) -->
+          <circle
+            :cx="mmToPixelsX(track.end_x)"
+            :cy="mmToPixelsY(track.end_y)"
+            r="5"
+            fill="#ef4444"
+            stroke="white"
+            stroke-width="1"
+          />
+          <!-- Track ID label at midpoint -->
+          <g v-if="layers.labels" class="track-label">
+            <rect
+              :x="mmToPixelsX((track.start_x + track.end_x) / 2) - 12"
+              :y="mmToPixelsY((track.start_y + track.end_y) / 2) - 8"
+              width="24"
+              height="16"
+              rx="4"
+              fill="rgba(0, 0, 0, 0.7)"
+            />
+            <text
+              :x="mmToPixelsX((track.start_x + track.end_x) / 2)"
+              :y="mmToPixelsY((track.start_y + track.end_y) / 2) + 4"
+              text-anchor="middle"
+              fill="white"
+              font-size="10"
+              font-weight="bold"
+            >
+              {{ track.track_id }}
+            </text>
+          </g>
+        </g>
+      </g>
+
       <!-- Movers -->
-      <g class="movers">
+      <g v-if="layers.movers" class="movers">
         <g
           v-for="mover in movers"
           :key="mover.actor_id"
@@ -168,6 +233,7 @@ function getMoverState(mover: MoverState): string {
             rx="4"
           />
           <text
+            v-if="layers.labels"
             :x="getMoverX(mover)"
             :y="getMoverY(mover) + 4"
             text-anchor="middle"
@@ -195,14 +261,14 @@ function getMoverState(mover: MoverState): string {
 .deck-container {
   display: flex;
   justify-content: center;
-  padding: 16px;
-  background: #1a1a1a;
-  border-radius: 12px;
+  align-items: center;
+  width: 100%;
+  height: 100%;
   overflow: auto;
 }
 
 .deck-svg {
-  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.3));
+  /* No shadow - clean look like TD */
 }
 
 .station:hover rect {
@@ -211,5 +277,13 @@ function getMoverState(mover: MoverState): string {
 
 .mover:hover rect {
   filter: brightness(1.2);
+}
+
+.track line {
+  filter: drop-shadow(0 0 2px rgba(34, 211, 238, 0.5));
+}
+
+.track-label {
+  pointer-events: none;
 }
 </style>

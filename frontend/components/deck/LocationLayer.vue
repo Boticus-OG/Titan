@@ -1,6 +1,7 @@
 <script setup lang="ts">
 /**
  * LocationLayer - Renders location markers (waypoints, devices, pivots, queues)
+ * Uses lower-left origin coordinate system
  */
 
 import type { Location, LocationType } from '~/types/deck'
@@ -9,6 +10,7 @@ const props = defineProps<{
   locations: Location[]
   pixelsPerMm: number
   padding: number
+  maxY: number
   editable: boolean
   selectedLocationId: string | null
 }>()
@@ -18,17 +20,22 @@ const emit = defineEmits<{
   (e: 'location-moved', locationId: string, x: number, y: number): void
 }>()
 
-// Convert mm to pixels
-function mmToPixels(mm: number): number {
+// Convert mm to pixels (X axis - no inversion)
+function mmToPixelsX(mm: number): number {
   return mm * props.pixelsPerMm + props.padding
+}
+
+// Convert mm to pixels (Y axis - inverted for lower-left origin)
+function mmToPixelsY(mm: number): number {
+  return (props.maxY - mm) * props.pixelsPerMm + props.padding
 }
 
 // Location type colors
 const typeColors: Record<LocationType, string> = {
-  waypoint: '#22c55e',
-  device: '#8b5cf6',
-  pivot: '#f59e0b',
-  queue: '#06b6d4',
+  waypoint: 'var(--color-success)',
+  device: 'var(--color-station-pipetter)',
+  pivot: 'var(--color-warning)',
+  queue: 'var(--color-info)',
   track_service_location: '#94a3b8',
 }
 
@@ -64,8 +71,8 @@ function startDrag(event: MouseEvent, location: Location) {
   if (!props.editable) return
   dragging.value = location.location_id
   dragOffset.value = {
-    x: event.clientX - mmToPixels(location.x),
-    y: event.clientY - mmToPixels(location.y),
+    x: event.clientX - mmToPixelsX(location.x),
+    y: event.clientY - mmToPixelsY(location.y),
   }
 }
 
@@ -73,7 +80,8 @@ function onDrag(event: MouseEvent) {
   if (!dragging.value || !props.editable) return
 
   const newX = (event.clientX - dragOffset.value.x - props.padding) / props.pixelsPerMm
-  const newY = (event.clientY - dragOffset.value.y - props.padding) / props.pixelsPerMm
+  // Invert Y for lower-left origin
+  const newY = props.maxY - (event.clientY - dragOffset.value.y - props.padding) / props.pixelsPerMm
 
   emit('location-moved', dragging.value, newX, newY)
 }
@@ -110,8 +118,8 @@ watch(dragging, (val) => {
     >
       <!-- Location marker circle -->
       <circle
-        :cx="mmToPixels(location.x)"
-        :cy="mmToPixels(location.y)"
+        :cx="mmToPixelsX(location.x)"
+        :cy="mmToPixelsY(location.y)"
         r="12"
         :fill="getColor(location)"
         :stroke="isSelected(location) ? 'white' : 'transparent'"
@@ -120,8 +128,8 @@ watch(dragging, (val) => {
 
       <!-- Location type icon -->
       <text
-        :x="mmToPixels(location.x)"
-        :y="mmToPixels(location.y) + 4"
+        :x="mmToPixelsX(location.x)"
+        :y="mmToPixelsY(location.y) + 4"
         text-anchor="middle"
         fill="white"
         font-size="10"
@@ -136,16 +144,16 @@ watch(dragging, (val) => {
         class="location-label"
       >
         <rect
-          :x="mmToPixels(location.x) - 40"
-          :y="mmToPixels(location.y) - 28"
+          :x="mmToPixelsX(location.x) - 40"
+          :y="mmToPixelsY(location.y) - 28"
           width="80"
           height="16"
           rx="4"
           fill="rgba(0, 0, 0, 0.8)"
         />
         <text
-          :x="mmToPixels(location.x)"
-          :y="mmToPixels(location.y) - 16"
+          :x="mmToPixelsX(location.x)"
+          :y="mmToPixelsY(location.y) - 16"
           text-anchor="middle"
           fill="white"
           font-size="9"
@@ -157,10 +165,10 @@ watch(dragging, (val) => {
       <!-- Rotation indicator (if rotation != 0) -->
       <line
         v-if="location.c !== 0"
-        :x1="mmToPixels(location.x)"
-        :y1="mmToPixels(location.y)"
-        :x2="mmToPixels(location.x) + Math.cos(location.c * Math.PI / 180) * 15"
-        :y2="mmToPixels(location.y) + Math.sin(location.c * Math.PI / 180) * 15"
+        :x1="mmToPixelsX(location.x)"
+        :y1="mmToPixelsY(location.y)"
+        :x2="mmToPixelsX(location.x) + Math.cos(location.c * Math.PI / 180) * 15"
+        :y2="mmToPixelsY(location.y) - Math.sin(location.c * Math.PI / 180) * 15"
         stroke="white"
         stroke-width="2"
       />

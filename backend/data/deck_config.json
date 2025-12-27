@@ -1,0 +1,15 @@
+{
+  "name": "Default Deck",
+  "cols": 6,
+  "rows": 3,
+  "disabled_tiles": [
+    {
+      "col": 1,
+      "row": 1
+    },
+    {
+      "col": 4,
+      "row": 1
+    }
+  ]
+}

@@ -755,18 +755,40 @@ async function syncToBackend() {
       }
     }
 
-    // 3. Sync track lines
-    // DeckView handles Y-flip for display, so we pass coordinates directly
-    // (both TD and backend use mm coordinates, just different visual origin)
-    const convertedTracks = trackLines.value.map((line, idx) => ({
-      track_id: idx + 1,
-      name: `Track ${idx + 1}`,
-      start_x: line.startX,
-      start_y: line.startY,
-      end_x: line.endX,
-      end_y: line.endY
-    }))
-    console.log('Tracks ready for backend (when API available):', convertedTracks)
+    // 3. Sync track lines - delete existing and add new ones
+    // First, get existing tracks and delete them
+    const existingTracksResponse = await fetch(`${API_BASE}/api/deck/tracks`)
+    if (existingTracksResponse.ok) {
+      const existingTracks = await existingTracksResponse.json()
+      for (const track of existingTracks) {
+        await fetch(`${API_BASE}/api/deck/tracks/${track.track_id}`, {
+          method: 'DELETE'
+        })
+      }
+    }
+
+    // Now add new tracks
+    for (let idx = 0; idx < trackLines.value.length; idx++) {
+      const line = trackLines.value[idx]
+      const trackData = {
+        track_id: idx + 1,
+        name: `Track ${idx + 1}`,
+        start_x: line.startX,
+        start_y: line.startY,
+        end_x: line.endX,
+        end_y: line.endY
+      }
+
+      const response = await fetch(`${API_BASE}/api/deck/tracks`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(trackData)
+      })
+
+      if (!response.ok) {
+        console.warn(`Failed to create track ${idx + 1}: ${response.statusText}`)
+      }
+    }
 
     updateStatus(`Synced to backend: ${cols}x${rows} grid, ${activeTileCount.value} active tiles, ${trackLines.value.length} tracks`)
   } catch (error) {

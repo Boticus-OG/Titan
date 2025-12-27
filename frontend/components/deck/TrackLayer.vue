@@ -1,6 +1,7 @@
 <script setup lang="ts">
 /**
  * TrackLayer - Renders tracks and in-progress track drawing
+ * Uses lower-left origin coordinate system
  */
 
 import type { Track, DrawingTrack } from '~/types/deck'
@@ -10,6 +11,7 @@ const props = defineProps<{
   drawingTrack: DrawingTrack | null
   pixelsPerMm: number
   padding: number
+  maxY: number
   selectedTrackId: number | null
 }>()
 
@@ -17,9 +19,14 @@ const emit = defineEmits<{
   (e: 'track-click', track: Track): void
 }>()
 
-// Convert mm to pixels
-function mmToPixels(mm: number): number {
+// Convert mm to pixels (X axis - no inversion)
+function mmToPixelsX(mm: number): number {
   return mm * props.pixelsPerMm + props.padding
+}
+
+// Convert mm to pixels (Y axis - inverted for lower-left origin)
+function mmToPixelsY(mm: number): number {
+  return (props.maxY - mm) * props.pixelsPerMm + props.padding
 }
 
 // Check if track is selected
@@ -29,7 +36,7 @@ function isSelected(track: Track): boolean {
 
 // Get track color
 function getTrackColor(track: Track): string {
-  return isSelected(track) ? '#22d3ee' : '#60a5fa'
+  return isSelected(track) ? 'var(--color-mover-active)' : 'var(--color-track)'
 }
 </script>
 
@@ -45,10 +52,10 @@ function getTrackColor(track: Track): string {
     >
       <!-- Track line -->
       <line
-        :x1="mmToPixels(track.start_x)"
-        :y1="mmToPixels(track.start_y)"
-        :x2="mmToPixels(track.end_x)"
-        :y2="mmToPixels(track.end_y)"
+        :x1="mmToPixelsX(track.start_x)"
+        :y1="mmToPixelsY(track.start_y)"
+        :x2="mmToPixelsX(track.end_x)"
+        :y2="mmToPixelsY(track.end_y)"
         :stroke="getTrackColor(track)"
         stroke-width="3"
         stroke-linecap="round"
@@ -56,20 +63,20 @@ function getTrackColor(track: Track): string {
 
       <!-- Start point (green) -->
       <circle
-        :cx="mmToPixels(track.start_x)"
-        :cy="mmToPixels(track.start_y)"
+        :cx="mmToPixelsX(track.start_x)"
+        :cy="mmToPixelsY(track.start_y)"
         r="5"
-        fill="#22c55e"
+        fill="var(--color-track-start)"
         stroke="white"
         stroke-width="1"
       />
 
       <!-- End point (red) -->
       <circle
-        :cx="mmToPixels(track.end_x)"
-        :cy="mmToPixels(track.end_y)"
+        :cx="mmToPixelsX(track.end_x)"
+        :cy="mmToPixelsY(track.end_y)"
         r="5"
-        fill="#ef4444"
+        fill="var(--color-track-end)"
         stroke="white"
         stroke-width="1"
       />
@@ -77,16 +84,16 @@ function getTrackColor(track: Track): string {
       <!-- Track ID label at midpoint -->
       <g class="track-label">
         <rect
-          :x="mmToPixels((track.start_x + track.end_x) / 2) - 12"
-          :y="mmToPixels((track.start_y + track.end_y) / 2) - 8"
+          :x="mmToPixelsX((track.start_x + track.end_x) / 2) - 12"
+          :y="mmToPixelsY((track.start_y + track.end_y) / 2) - 8"
           width="24"
           height="16"
           rx="4"
           fill="rgba(0, 0, 0, 0.7)"
         />
         <text
-          :x="mmToPixels((track.start_x + track.end_x) / 2)"
-          :y="mmToPixels((track.start_y + track.end_y) / 2) + 4"
+          :x="mmToPixelsX((track.start_x + track.end_x) / 2)"
+          :y="mmToPixelsY((track.start_y + track.end_y) / 2) + 4"
           text-anchor="middle"
           fill="white"
           font-size="10"
@@ -102,11 +109,11 @@ function getTrackColor(track: Track): string {
       <!-- Line from start to current mouse position -->
       <line
         v-if="drawingTrack.current"
-        :x1="mmToPixels(drawingTrack.start.x)"
-        :y1="mmToPixels(drawingTrack.start.y)"
-        :x2="mmToPixels(drawingTrack.current.x)"
-        :y2="mmToPixels(drawingTrack.current.y)"
-        stroke="#fbbf24"
+        :x1="mmToPixelsX(drawingTrack.start.x)"
+        :y1="mmToPixelsY(drawingTrack.start.y)"
+        :x2="mmToPixelsX(drawingTrack.current.x)"
+        :y2="mmToPixelsY(drawingTrack.current.y)"
+        stroke="var(--color-plate)"
         stroke-width="3"
         stroke-dasharray="5,5"
         stroke-linecap="round"
@@ -114,11 +121,11 @@ function getTrackColor(track: Track): string {
 
       <!-- Start point -->
       <circle
-        :cx="mmToPixels(drawingTrack.start.x)"
-        :cy="mmToPixels(drawingTrack.start.y)"
+        :cx="mmToPixelsX(drawingTrack.start.x)"
+        :cy="mmToPixelsY(drawingTrack.start.y)"
         r="6"
-        fill="#22c55e"
-        stroke="#fbbf24"
+        fill="var(--color-track-start)"
+        stroke="var(--color-plate)"
         stroke-width="2"
       >
         <animate
@@ -132,10 +139,10 @@ function getTrackColor(track: Track): string {
       <!-- Current point indicator -->
       <circle
         v-if="drawingTrack.current"
-        :cx="mmToPixels(drawingTrack.current.x)"
-        :cy="mmToPixels(drawingTrack.current.y)"
+        :cx="mmToPixelsX(drawingTrack.current.x)"
+        :cy="mmToPixelsY(drawingTrack.current.y)"
         r="4"
-        fill="#fbbf24"
+        fill="var(--color-plate)"
         opacity="0.8"
       />
     </g>
@@ -152,7 +159,7 @@ function getTrackColor(track: Track): string {
 }
 
 .track.selected line {
-  filter: drop-shadow(0 0 4px #22d3ee);
+  filter: drop-shadow(0 0 4px var(--color-mover-active));
 }
 
 .track-label {

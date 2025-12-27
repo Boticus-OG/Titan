@@ -18,6 +18,9 @@ const loading = ref(true)
 const error = ref<string | null>(null)
 const demoRunning = ref(false)
 
+// DeckView ref for accessing layers
+const deckViewRef = ref<{ layers: { tiles: boolean; stations: boolean; tracks: boolean; movers: boolean; labels: boolean } } | null>(null)
+
 // API base URL
 const apiBase = 'http://localhost:8000'
 
@@ -160,14 +163,9 @@ onMounted(async () => {
         <div v-if="loading" class="loading">
           Loading deck configuration...
         </div>
-        <div v-else-if="deck" class="deck-wrapper">
-          <!-- Debug info -->
-          <div class="debug-info">
-            Deck: {{ deck.cols }}x{{ deck.rows }} |
-            Stations: {{ deck.stations?.length || 0 }} |
-            Movers: {{ movers.length }}
-          </div>
+        <div v-else-if="deck" class="deck-canvas">
           <DeckView
+            ref="deckViewRef"
             :deck="deck"
             :movers="movers"
             :plates="plates"
@@ -274,6 +272,41 @@ onMounted(async () => {
             </div>
           </div>
         </div>
+
+        <!-- Layers -->
+        <div class="card layers-card">
+          <div class="card-header">
+            Layers
+          </div>
+          <div v-if="deckViewRef?.layers" class="layers-list">
+            <label class="layer-toggle">
+              <input v-model="deckViewRef.layers.tiles" type="checkbox" />
+              <span>Tiles</span>
+            </label>
+            <label class="layer-toggle">
+              <input v-model="deckViewRef.layers.stations" type="checkbox" />
+              <span>Stations</span>
+            </label>
+            <label class="layer-toggle">
+              <input v-model="deckViewRef.layers.tracks" type="checkbox" />
+              <span>Tracks</span>
+            </label>
+            <label class="layer-toggle">
+              <input v-model="deckViewRef.layers.movers" type="checkbox" />
+              <span>Movers</span>
+            </label>
+            <label class="layer-toggle">
+              <input v-model="deckViewRef.layers.labels" type="checkbox" />
+              <span>Labels</span>
+            </label>
+          </div>
+          <div v-else class="layers-loading">
+            Loading...
+          </div>
+        </div>
+
+        <!-- Spacer for future status bar -->
+        <div class="status-bar-spacer"></div>
       </div>
     </div>
   </div>
@@ -319,14 +352,14 @@ onMounted(async () => {
   gap: 0;
 }
 
-/* Main deck area - matches Track Designer canvas area */
+/* Main deck area - white canvas playground */
 .deck-panel {
   flex: 1;
   display: flex;
   flex-direction: column;
   min-height: 0;
   min-width: 0;
-  background: #f0f0f0;
+  background: white;
 }
 
 .panel-header {
@@ -378,7 +411,7 @@ onMounted(async () => {
   justify-content: center;
   flex: 1;
   color: #7f8c8d;
-  background: #ecf0f1;
+  background: white;
 }
 
 /* Cards - Track Designer section style */
@@ -475,20 +508,14 @@ onMounted(async () => {
   cursor: not-allowed;
 }
 
-.deck-wrapper {
+/* White canvas for deck visualization - centered */
+.deck-canvas {
   flex: 1;
   display: flex;
-  flex-direction: column;
+  justify-content: center;
+  align-items: center;
   min-height: 0;
-  padding: 0;
-}
-
-.debug-info {
-  background: #34495e;
-  padding: 6px 12px;
-  font-size: var(--text-xs);
-  font-family: var(--font-mono);
-  color: #bdc3c7;
+  overflow: auto;
 }
 
 /* Badge overrides for dark theme */
@@ -509,5 +536,47 @@ onMounted(async () => {
 .badge-info {
   background: rgba(52, 152, 219, 0.3);
   color: #3498db;
+}
+
+/* Layers Card */
+.layers-card {
+  margin-top: auto;
+}
+
+.layers-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.layer-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  padding: 4px 0;
+  font-size: 12px;
+  color: #ecf0f1;
+}
+
+.layer-toggle:hover {
+  color: white;
+}
+
+.layer-toggle input {
+  width: 14px;
+  height: 14px;
+  accent-color: #3498db;
+}
+
+.layers-loading {
+  color: #7f8c8d;
+  font-size: 12px;
+}
+
+/* Status bar spacer */
+.status-bar-spacer {
+  height: 40px;
+  flex-shrink: 0;
 }
 </style>

@@ -11,6 +11,7 @@
       </div>
       <nav class="header-nav">
         <NuxtLink to="/" class="nav-link">Deck</NuxtLink>
+        <NuxtLink to="/system-config" class="nav-link">System Config</NuxtLink>
         <NuxtLink to="/deck-editor" class="nav-link">Track Designer</NuxtLink>
         <NuxtLink to="/workflows" class="nav-link">Workflows</NuxtLink>
         <NuxtLink to="/actors" class="nav-link">Actors</NuxtLink>

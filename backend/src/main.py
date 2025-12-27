@@ -33,6 +33,7 @@ from .api import (
     set_tracks_deps,
     deck_editor_router,
     set_editor_deps,
+    devices_router,
 )
 
 # Configure logging
@@ -189,6 +190,7 @@ app.add_middleware(
 app.include_router(locations_router)
 app.include_router(tracks_router)
 app.include_router(deck_editor_router)
+app.include_router(devices_router)
 
 
 # ============================================================================
@@ -344,8 +346,19 @@ async def get_deck():
     - Grid dimensions and tile size
     - All stator tiles with their positions
     - All stations with device types and availability
+    - All tracks (from live TrackManager)
+    - All locations (from live LocationManager)
     """
-    return titan.deck.to_dict()
+    # Build response with live data from managers (not stale deck object)
+    deck_dict = titan.deck.to_dict()
+
+    # Override with live track data from TrackManager
+    deck_dict["tracks"] = [track.to_dict() for track in titan.track_manager.get_all()]
+
+    # Override with live location data from LocationManager
+    deck_dict["locations"] = [loc.to_dict() for loc in titan.location_manager.get_all()]
+
+    return deck_dict
 
 
 @app.get("/api/deck/stations")

@@ -1,0 +1,116 @@
+{
+  "locations": [
+    {
+      "name": "New waypoint",
+      "type": "waypoint",
+      "coordinates": {
+        "cartesian": {
+          "x": 360.0,
+          "y": 115.0,
+          "c": 0.0
+        },
+        "track": null
+      },
+      "parent": null,
+      "metadata": {}
+    },
+    {
+      "name": "New waypoint",
+      "type": "waypoint",
+      "coordinates": {
+        "cartesian": {
+          "x": 665.0,
+          "y": 115.0,
+          "c": 0.0
+        },
+        "track": null
+      },
+      "parent": null,
+      "metadata": {}
+    },
+    {
+      "name": "New waypoint",
+      "type": "waypoint",
+      "coordinates": {
+        "cartesian": {
+          "x": 650.0,
+          "y": 45.0,
+          "c": 0.0
+        },
+        "track": null
+      },
+      "parent": null,
+      "metadata": {}
+    },
+    {
+      "name": "New waypoint",
+      "type": "waypoint",
+      "coordinates": {
+        "cartesian": {
+          "x": 655.0,
+          "y": 405.0,
+          "c": 0.0
+        },
+        "track": null
+      },
+      "parent": null,
+      "metadata": {}
+    },
+    {
+      "name": "New waypoint",
+      "type": "waypoint",
+      "coordinates": {
+        "cartesian": {
+          "x": 820.0,
+          "y": 390.0,
+          "c": 0.0
+        },
+        "track": null
+      },
+      "parent": null,
+      "metadata": {}
+    },
+    {
+      "name": "New waypoint",
+      "type": "waypoint",
+      "coordinates": {
+        "cartesian": {
+          "x": 300.0,
+          "y": 60.0,
+          "c": 0.0
+        },
+        "track": null
+      },
+      "parent": null,
+      "metadata": {}
+    },
+    {
+      "name": "New device",
+      "type": "device",
+      "coordinates": {
+        "cartesian": {
+          "x": 110.0,
+          "y": 125.0,
+          "c": 0.0
+        },
+        "track": null
+      },
+      "parent": null,
+      "metadata": {}
+    },
+    {
+      "name": "New device",
+      "type": "device",
+      "coordinates": {
+        "cartesian": {
+          "x": 485.0,
+          "y": 210.0,
+          "c": 0.0
+        },
+        "track": null
+      },
+      "parent": null,
+      "metadata": {}
+    }
+  ]
+}
